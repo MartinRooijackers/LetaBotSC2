@@ -98,9 +98,9 @@ int main(int argc, char* argv[])
     //          Setting this = N means the bot's onFrame gets called once every N frames
     //          The bot may crash or do unexpected things if its logic is not called every frame
     coordinator.SetStepSize(stepSize);
-    //coordinator.SetRealtime(false);
-	coordinator.SetRealtime(true);
-	coordinator.SetMultithreaded(true);
+    coordinator.SetRealtime(false);
+	//coordinator.SetRealtime(true);
+	//coordinator.SetMultithreaded(true);
 
 	//3 minutes to load the game, I have a cheap laptop
 	coordinator.SetTimeoutMS(180000);
