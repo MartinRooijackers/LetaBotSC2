@@ -162,24 +162,27 @@ sc2::Point3D BaseManager::TrickPos(const sc2::Unit* newMineral, int facing)
 void BaseManager::ScheduleWorker(int index)
 {
 
-	const int Mining_Time = 30; //mining takes about 30 frames?
-	const float SpeedUnitsPerFrame = 2.8125 / 30.0; //how many speed units traveled each frame
+	//const int Mining_Time = 30; //mining takes about 30 frames?
+	const float Mining_Time_f = 9.0f; //about the travel time of 8.0f?
+	//const float SpeedUnitsPerFrame = 2.8125 / 30.0; //how many speed units traveled each frame
 
 	int bestMineralField = -1;
-	int Fastest = 99999;
+	//int Fastest = 99999;
+	float Fastest = 99999.0;
 
 	//int j = 0;
 
 	for (int j = 0; j < minerals.size(); j++) {
 
 
-		int TotWork = 0;
+		//int TotWork = 0;
+		float TotWork = 0;
 		float DistToCC = Util::Dist(baseData->getDepotPosition(), minerals[j].mineralUnit->pos);
-		int FramesDistToCC = (int)(DistToCC / SpeedUnitsPerFrame);
+		//int FramesDistToCC = (int)(DistToCC / SpeedUnitsPerFrame);
 		float distanceThisSCVMineral = Util::Dist(workers[index].scv->pos, minerals[j].mineralUnit->pos);
-		int framesNeededThisToMineral = (int)(distanceThisSCVMineral / SpeedUnitsPerFrame);
+		//int framesNeededThisToMineral = (int)(distanceThisSCVMineral / SpeedUnitsPerFrame);
 
-
+		//std::cerr << "travel time time: " << distanceThisSCVMineral << "\n";
 
 
 		for (int i = 0; i < minerals[j].Queue.size(); i++) {
@@ -197,21 +200,45 @@ void BaseManager::ScheduleWorker(int index)
 			}
 
 			float distanceSCVMineral = Util::Dist(referencedSCV->scv->pos, minerals[j].mineralUnit->pos);
-			int framesNeeded = (int)(distanceSCVMineral / SpeedUnitsPerFrame);
-			int travel = max(0, framesNeeded - TotWork);
+			//int framesNeeded = (int)(distanceSCVMineral / SpeedUnitsPerFrame);
 
-			int miningTime = Mining_Time; //drill takes about 30 frames
+			//std::cerr << "tavel time time: " << distanceSCVMineral << "\n";
+
+			//int travel = max(0, framesNeeded - TotWork);
+			float travel = max(0, distanceSCVMineral - TotWork);
+
+			//int miningTime = Mining_Time_f; //drill takes about 30 frames
+			float miningTime = Mining_Time_f; //drill takes about 30 frames
+
 			//calculate remaining drilling time
 			if (i == 0) {
 				if (referencedSCV->SCVstate == GatheringMineral) {
-					miningTime = totalFrames - referencedSCV->StartedMining;
+					travel = 0.0f;
+					int miningTimeframes = totalFrames - referencedSCV->StartedMining;
+					//std::cerr << "Mining time: " << miningTime << "\n";
+					if (miningTimeframes < 60 && miningTimeframes > 0) {
+						miningTime = miningTime * (  (float)(60 - miningTimeframes) / 60.0f);
+					}
+					if (miningTimeframes >= 30) {
+						//std::cerr << "mining time is taking: " << miningTimeframes << "\n";
+						//miningTime = 0.0f;
+					}
+
+
+					//if (miningTime > Mining_Time) { //misrecorded state change
+					if (miningTime > Mining_Time_f) { //misrecorded state change
+						miningTime = Mining_Time_f;
+					}
+
+
 				}
 			}
 			
 			TotWork += travel + miningTime;
 			//std::cerr << "Total work: " << TotWork << " ";
 		}
-		int MyWork = max(0, framesNeededThisToMineral - TotWork) + TotWork + Mining_Time + FramesDistToCC;
+		//int MyWork = max(0, distanceThisSCVMineral - TotWork) + TotWork + Mining_Time_f + DistToCC;
+		float MyWork = max(0, distanceThisSCVMineral - TotWork) + TotWork + Mining_Time_f + DistToCC;
 
 		if (Fastest > MyWork) {
 			Fastest = MyWork;
@@ -367,7 +394,8 @@ void BaseManager::onframe()
 		
 		std::stringstream ss2;
 		//char *intStr = itoa(totalFrames);
-		ss2 << mineral.Facing;
+		//ss2 << mineral.Facing;
+		ss2 << mineral.Queue.size();
 		std::string facingSTR = ss2.str();
 		m_bot.Map().drawText(mineral.mineralUnit->pos, facingSTR);
 		
@@ -818,6 +846,15 @@ void BaseManager::onFramePath()
 			}
 			if (workers[i].Intermidiate != sc2::Point3D(0,0,0) ) {
 				const sc2::Point2D  interpoint2d(workers[i].Intermidiate);
+
+				float maxDistInterPoint = (float)1.5;
+				//if close enough to the inter point, start gathering from the real one
+				if (Util::Dist(workers[i].scv->pos, workers[i].Intermidiate) < maxDistInterPoint) {
+					workers[i].SCVstate = GatheringMineral;
+					Micro::SmartRightClick(workers[i].scv, workers[i].mineral, m_bot);
+					continue;
+				}
+
 				if (workers[i].scv->orders.size() > 0) {
 					if (workers[i].scv->orders[0].target_pos.x != interpoint2d.x
 						&& workers[i].scv->orders[0].target_pos.y != interpoint2d.y
@@ -999,6 +1036,17 @@ void BaseManager::onFrameQueuePath()
 				}
 			}
 			if (workers[i].Intermidiate != sc2::Point3D(0, 0, 0)) {
+
+
+				float maxDistInterPoint = (float)1.5;
+				//if close enough to the inter point, start gathering from the real one
+				if (Util::Dist(workers[i].scv->pos, workers[i].Intermidiate) < maxDistInterPoint) {
+					workers[i].SCVstate = GatheringMineral;
+					Micro::SmartRightClick(workers[i].scv, workers[i].mineral, m_bot);
+					continue;
+				}
+
+
 				const sc2::Point2D  interpoint2d(workers[i].Intermidiate);
 				if (workers[i].scv->orders.size() > 0) {
 					if (workers[i].scv->orders[0].target_pos.x != interpoint2d.x
